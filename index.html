@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Cena</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <span class="logo">◈ Editor de Cena</span>
+    <div class="top-sep"></div>
+    <input id="scene-name" type="text" value="Untitled Scene" spellcheck="false">
+    <div class="top-sep"></div>
+    <button class="top-btn" onclick="saveScene()">💾 Salvar</button>
+    <button class="top-btn" onclick="document.getElementById('scene-file-input').click()">📂 Abrir</button>
+    <input id="scene-file-input" type="file" accept=".json" style="display:none" onchange="handleSceneLoad(event)">
+    <div class="spacer"></div>
+    <button class="top-btn active" id="btn-collision" onclick="toggleCollision()" title="Ativar/desativar colisão entre objetos">🛡 Colisão</button>
+    <!--<button class="top-btn" id="btn-wireframe" onclick="toggleWireframe()">Wireframe</button>-->
+    <!--<button class="top-btn" id="btn-grid" onclick="toggleGrid()">Grade</button>-->
+    <button class="top-btn primary" onclick="exportPNG()">Exportar PNG</button>
+    <button id="theme-btn" onclick="toggleTheme()" title="Alternar modo escuro/claro">🌙</button>
+  </div>
+
+  <div id="left-panel">
+    <div class="panel-header">Biblioteca</div>
+    <div id="models-scroll"></div>
+    <div class="divider"></div>
+    <div class="panel-header">Cena <span onclick="clearScene()">Limpar</span></div>
+    <div id="scene-scroll">
+      <div class="scene-empty" id="scene-empty">Adicione modelos da biblioteca para começar</div>
+    </div>
+  </div>
+
+  <div id="viewport">
+    <canvas id="canvas"></canvas>
+    <div id="gizmo-hint"><b>Girar em órbita:</b> Botão esquerdo<br><b>Zoom:</b> Scroll<br><b>Selecionar:</b> Clique no objeto</div>
+    <div id="loading"><div class="spinner"></div><p id="loading-msg">Carregando…</p></div>
+  </div>
+
+  <div id="right-panel">
+    <div class="panel-header">Propriedades</div>
+    <div id="props-scroll">
+      <div class="no-selection" id="no-selection">Selecione um objeto na cena para editar propriedades</div>
+      <div id="props-content" style="display:none">
+        <div class="panel-section">
+          <div class="section-title" onclick="toggleSection(this)">Transformação</div>
+          <div class="section-body">
+            <!-- Joy row 1: Mover XZ | Altura Y | Rot XY -->
+            <div class="joy-widget-row">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label">Mover XZ</div>
+                <div class="joy-pad" id="joy-move"><div class="joy-knob" id="joy-move-k"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label">Altura Y</div>
+                <div class="joy-strip" id="joy-height"><div class="joy-strip-k" id="joy-height-k"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label">Rot XY</div>
+                <div class="joy-rot-pad" id="joy-rot"><div class="joy-rot-knob" id="joy-rot-k"></div></div>
+              </div>
+            </div>
+            <!-- Joy row 2: Rot Z | Scl X | Scl Y | Scl Z -->
+            <div class="joy-widget-row" style="justify-content:space-around">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label">Rot Z</div>
+                <div class="joy-strip joy-strip-rot" id="joy-rot-z"><div class="joy-strip-k" id="joy-rot-z-k"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label" style="color:#e05555">Scl X</div>
+                <div class="joy-strip joy-strip-scl" id="joy-scl-x"><div class="joy-strip-k" id="joy-scl-x-k"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label" style="color:#3cba6a">Scl Y</div>
+                <div class="joy-strip joy-strip-scl" id="joy-scl-y"><div class="joy-strip-k" id="joy-scl-y-k"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div class="joy-label" style="color:#5b8ff5">Scl Z</div>
+                <div class="joy-strip joy-strip-scl" id="joy-scl-z"><div class="joy-strip-k" id="joy-scl-z-k"></div></div>
+              </div>
+            </div>
+            <!-- Posição -->
+            <div class="prop-group-title">Posição</div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-x">X</span><input class="prop-axis-input" type="number" id="p-x" step="0.1" oninput="applyTransform()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-y">Y</span><input class="prop-axis-input" type="number" id="p-y" step="0.1" oninput="applyTransform()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-z">Z</span><input class="prop-axis-input" type="number" id="p-z" step="0.1" oninput="applyTransform()"></div>
+            <!-- Rotação -->
+            <div class="prop-group-title">Rotação°</div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-x">X</span><input class="prop-axis-input" type="number" id="r-x" step="1" oninput="applyTransform()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-y">Y</span><input class="prop-axis-input" type="number" id="r-y" step="1" oninput="applyTransform()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-z">Z</span><input class="prop-axis-input" type="number" id="r-z" step="1" oninput="applyTransform()"></div>
+            <!-- Escala -->
+            <div class="prop-group-title">Escala</div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-x">X</span><input class="prop-axis-input" type="number" id="s-x" step="0.01" min="0.001" oninput="applyTransform('x')"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-y">Y</span><input class="prop-axis-input" type="number" id="s-y" step="0.01" min="0.001" oninput="applyTransform('y')"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-z">Z</span><input class="prop-axis-input" type="number" id="s-z" step="0.01" min="0.001" oninput="applyTransform('z')"></div>
+            <!-- Escala rápida -->
+            <div class="prop-slider-row" style="margin-top:8px">
+              <div class="prop-slider-header"><span class="label">Escala Uniforme</span><span class="val" id="val-scale">1.00</span></div>
+              <input type="range" id="sl-scale" min="0.05" max="5" step="0.05" value="1" oninput="applyScaleSlider()">
+            </div>
+            <div class="prop-toggle-row" style="margin-top:4px">
+              <!--<div class="label" style="width:54px;font-size:11px;color:var(--muted);text-align:right">Uniform</div>-->
+              <!--<label class="toggle"><input type="checkbox" id="uniform-scale"><span class="toggle-track"></span></label>-->
+              <!--<span class="toggle-label">Escala uniforme</span>-->
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px">
+              <button class="top-btn" style="flex:1;font-size:11px" onclick="resetTransform()">Resetar</button>
+              <button class="top-btn" style="flex:1;font-size:11px;border-color:var(--danger);color:var(--danger)" onclick="removeSelected()">🗑 Remover</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-section">
+          <div class="section-title" onclick="toggleSection(this)">Cor & Opacidade</div>
+          <div class="section-body">
+            <div class="prop-color-row"><div class="label">Cor base</div>
+              <input type="color" id="mat-color" value="#ffffff" oninput="applyMaterial()">
+              <input class="color-hex" type="text" id="mat-color-hex" value="#ffffff" oninput="syncColorFromHex()">
+            </div>
+            <div class="prop-slider-row" style="margin-top:6px">
+              <div class="prop-slider-header"><span class="label">Opacidade</span><span class="val" id="val-opacity">1.00</span></div>
+              <input type="range" id="sl-opacity" min="0" max="1" step="0.01" value="1" oninput="applyMaterial()">
+            </div>
+          </div>
+        </div>
+        <!--div class="panel-section">
+          <div class="section-title" onclick="toggleSection(this)">Animação</div>
+          <div class="section-body">
+            <div id="anim-tracks"></div>
+            <div id="no-anim" style="font-size:11px;color:var(--muted);padding:4px 0;display:none">Modelo sem animações</div>
+            <div class="prop-slider-row" style="margin-top:4px">
+              <div class="prop-slider-header"><span class="label">Velocidade</span><span class="val" id="val-anim-speed">1.0×</span></div>
+              <input type="range" id="sl-anim-speed" min="0.1" max="4" step="0.1" value="1" oninput="applyAnimSpeed()">
+            </div>
+          </div>
+        </div-->
+        <div class="panel-section">
+          <div class="section-title" onclick="toggleSection(this)">Animação</div>
+          <div class="section-body">
+            <div class="prop-group-title">Destino</div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-x">X</span><input class="prop-axis-input" type="number" id="mv-x" step="0.1" oninput="applyMoveTarget()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-y">Y</span><input class="prop-axis-input" type="number" id="mv-y" step="0.1" oninput="applyMoveTarget()"></div>
+            <div class="prop-axis-row"><span class="prop-axis-label ax-z">Z</span><input class="prop-axis-input" type="number" id="mv-z" step="0.1" oninput="applyMoveTarget()"></div>
+            <div class="prop-slider-row" style="margin-top:8px">
+              <div class="prop-slider-header"><span class="label">Velocidade (u/s)</span><span class="val" id="val-move-speed">2.0</span></div>
+              <input type="range" id="sl-move-speed" min="0.1" max="20" step="0.1" value="2" oninput="applyMoveSpeed()">
+            </div>
+            <div class="prop-axis-row" style="margin-top:6px">
+              <span class="prop-axis-label" style="width:auto;color:var(--muted);font-size:11px;font-weight:400">Modo</span>
+              <select class="prop-select" id="move-mode" onchange="applyMoveMode()" style="margin-left:6px">
+                <option value="once">Uma vez</option>
+                <option value="loop">Loop (voltar ao início)</option>
+                <option value="pingpong">Vaivém (ida e volta)</option>
+              </select>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px">
+              <button class="top-btn" id="btn-move-start" style="flex:1;font-size:11px" onclick="startMovement()">&#9654; Mover</button>
+              <button class="top-btn" style="flex:1;font-size:11px" onclick="stopMovement()">&#9632; Parar</button>
+            </div>
+            <div style="margin-top:4px">
+              <button class="top-btn" style="width:100%;font-size:11px" onclick="setMoveTargetFromPos()">&#128205; Usar posição atual como destino</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--div id="statusbar">
+    <<span id="sb-objects">Objetos: 0</span>>
+    <<span>·</span><span id="sb-selected">Nenhum selecionado</span>>
+    <div style="flex:1"></div>
+    <<span id="sb-fps">FPS: —</span>>
+    <<span>·</span><span>WebGL puro</span>>
+  </div>
+</div-->
+<div id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
