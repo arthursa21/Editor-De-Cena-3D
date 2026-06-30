@@ -1,1 +1,1 @@
-Trabalho da disciplina de Computação Gráfica da Universidade Federal de Pelotas
+Trabalho referente a disciplina de Computação Gráfica da Universidade Federal de Pelotas
