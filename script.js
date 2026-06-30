@@ -1,6 +1,6 @@
-// ============================================================
-// MATH LIBRARY
-// ============================================================
+// BIBLIOTECA MATEMÁTICA: 
+// Operações de Matrizes (M4), Vetores (V3) e 
+// Quatérnios (Q) para calcular física, rotações e projeções 3D.
 const M4 = {
   id: () => new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]),
   clone: m => new Float32Array(m),
@@ -104,9 +104,10 @@ const Q = {
   norm: q => { const l=Math.hypot(...q)||1; return q.map(v=>v/l); },
 };
 
-// ============================================================
-// SHADER SOURCES
-// ============================================================
+// CÓDIGOS DOS SHADERS: 
+// Programas nativos (GLSL) que rodam na GPU. 
+// O PBR simula materiais físicos (luz e textura)
+// O FLAT desenha cores sólidas (grade)
 const VERT_PBR = `
 attribute vec3 aPos;
 attribute vec3 aNorm;
@@ -188,9 +189,8 @@ precision mediump float;
 uniform vec4 uColor;
 void main(){gl_FragColor=uColor;}`;
 
-// ============================================================
-// WEBGL STATE
-// ============================================================
+// ESTADO do WEBGL: 
+// Gerencia as instâncias do canvas, arrays de objetos da cena e a configuração da câmera.
 let gl, canvas, W, H;
 let progPBR, progFlat;
 let sceneObjects = [], selectedObj = null, objectCounter = 0;
@@ -210,9 +210,8 @@ let cam = {
 
 let gridVAO = { vbo: null, count: 0 };
 
-// ============================================================
-// INIT
-// ============================================================
+// INICIALIZAÇÃO: 
+// Configura o contexto 3D, compila os shaders, monta o cenário e renderiza a cena.
 function initGL() {
   canvas = document.getElementById('canvas');
   gl = canvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true, alpha: false });
@@ -256,9 +255,8 @@ function onResize() {
   gl.viewport(0, 0, W, H);
 }
 
-// ============================================================
-// GRID
-// ============================================================
+// GRADE DA CENA (os "quadrados" do chão da cena): 
+// Cria as linhas que formam o plano cartesiano base no chão do ambiente 3D para referência espacial.
 function buildGrid() {
   const verts = [], n = 20, step = 1;
   for (let i = -n; i <= n; i++) {
@@ -271,9 +269,8 @@ function buildGrid() {
   gridVAO = { vbo, count: verts.length/3 };
 }
 
-// ============================================================
-// CAMERA
-// ============================================================
+// CÂMERA: 
+// Calcula as matrizes matemáticas de onde o usuário está olhando e ajusta a orbita da câmera
 function getViewMatrix() { return M4.lookAt(cam.eye, cam.target, cam.up); }
 function getProjMatrix() { return M4.perspective(cam.fov, W/H, cam.near, cam.far); }
 function updateCamFromOrbit() {
@@ -285,9 +282,8 @@ function updateCamFromOrbit() {
   ];
 }
 
-// ============================================================
-// MOUSE CONTROLS
-// ============================================================
+// CONTROLES DE MOUSE: 
+// Controla os cliques e arrastos de mouse na cena para a rotação da câmera (girar em órbita) e o ZOOM
 let mouse = { down: false, btn: 0, x: 0, y: 0, sx: 0, sy: 0, dragged: false };
 function setupMouseControls() {
   canvas.addEventListener('mousedown', e => {
@@ -323,9 +319,8 @@ function setupMouseControls() {
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-// ============================================================
-// RAY PICKING
-// ============================================================
+// SELEÇÃO POR RAIO (RAY PICKING): 
+// Converte um clique 2D da tela em um "raio" 3D que viaja pela cena para descobrir qual objeto foi clicado.
 function pickObject(e) {
   const rect = canvas.getBoundingClientRect();
   const nx = ((e.clientX - rect.left) / W) * 2 - 1;
@@ -431,9 +426,8 @@ function rayAABB(ro, rd, obj) {
   return tmax >= tmin && tmax > 0 ? tmin : Infinity;
 }
 
-// ============================================================
-// GEOMETRY BUILDERS
-// ============================================================
+// GEOMETRIA: 
+// Funções que geram matematicamente malhas 3D primitivas (vértices, normais e coordenadas UV) para caixas, esferas, etc.
 function makeBox(w=1, h=1, d=1) {
   const hw=w/2, hh=h/2, hd=d/2;
   const pos=[], nor=[], uv=[], idx=[];
@@ -554,9 +548,8 @@ function makeTorusKnot(R=0.4, r=0.12, p=2, q=3, segs=128, tubeSegs=16) {
   return { pos:new Float32Array(pos), nor:new Float32Array(nor), uv:new Float32Array(uv), idx:new Uint16Array(idx) };
 }
 
-// ============================================================
-// GPU MESH UPLOAD
-// ============================================================
+// ENVIO PARA A GPU: 
+// Prepara as malhas e dados e envia para a memória de vídeo (VRAM) usando Buffers (posições, texturas e limites).
 function uploadMesh(geo) {
   const posVbo = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, posVbo);
@@ -581,9 +574,8 @@ function computeAABB(posArr) {
   return { mn, mx };
 }
 
-// ============================================================
-// SCENE OBJECT
-// ============================================================
+// OBJETOS DA CENA: 
+// Funções que instanciam um objeto completo na memória, com transformações 3D (posição, escala), material e estado.
 function createSceneObject(meshes, name, mat=null) {
   const id = 'obj_' + (++objectCounter);
   let mn=[Infinity,Infinity,Infinity], mx=[-Infinity,-Infinity,-Infinity];
@@ -617,15 +609,14 @@ function updateModelMatrix(obj) {
   obj.modelMatrix = M4.mul(mx, M4.scale(s[0],s[1],s[2]));
 }
 
-// ============================================================
-// RENDER
-// ============================================================
+// RENDERIZAÇÃO: 
+// Limpa o frame anterior e varre todos os objetos e materiais para enviar os comandos de desenho finais para a GPU.
 function renderScene() {
   gl.clearColor(0.067, 0.067, 0.075, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const proj=getProjMatrix(), view=getViewMatrix(), vp=M4.mul(proj,view);
 
-  // Grid
+  // GRADE
   if (gridVisible) {
     gl.useProgram(progFlat);
     gl.uniformMatrix4fv(gl.getUniformLocation(progFlat,'uMVP'), false, vp);
@@ -638,7 +629,7 @@ function renderScene() {
     gl.disableVertexAttribArray(aPos);
   }
 
-  // Ground
+  // CHÃO
   gl.useProgram(progPBR);
   {
     const gm = uploadMesh(makePlane(40,40));
@@ -657,7 +648,7 @@ function renderScene() {
     gl.deleteBuffer(gm.posVbo); gl.deleteBuffer(gm.norVbo); gl.deleteBuffer(gm.ibo);
   }
 
-  // Scene objects
+  // Objetos da cena
   sceneObjects.forEach(obj => {
     if (!obj.visible) return;
     const mvp = M4.mul(vp, obj.modelMatrix);
@@ -720,9 +711,7 @@ function bindMeshAndDraw(mesh, prog, lines) {
   const aU = gl.getAttribLocation(prog,'aUV');   if (aU >= 0) gl.disableVertexAttribArray(aU);
 }
 
-// ============================================================
-// ANIMATION LOOP
-// ============================================================
+// ANIMAÇÃO dos objetos
 let lastTime = 0;
 function animate(ts=0) {
   animFrameId = requestAnimationFrame(animate);
@@ -774,9 +763,8 @@ function animate(ts=0) {
   }
 }
 
-// ============================================================
-// GLTF LOADER
-// ============================================================
+// CARREGADOR GLTF/GLB: 
+// Leitura de buffers binários ou textos (JSON) para importar modelos, malhas, hierarquias e animações
 async function loadGLTF(buffer, name) {
   showLoading('Parseando GLTF…');
   try {
@@ -970,9 +958,8 @@ function getComponents(ch) {
   return { translation:3, scale:3, rotation:4, weights:1 }[ch.path] || 3;
 }
 
-// ============================================================
-// OBJ LOADER
-// ============================================================
+// CARREGADOR OBJ: 
+// Analisa e quebra arquivos de texto .OBJ linha por linha (v, vn, vt, f) para construir a malha e centralizar o objeto na origem
 function loadOBJ(text, name) {
   const lines=text.split('\n');
   const positions=[], normals=[], texcoords=[];
@@ -1025,9 +1012,7 @@ function loadOBJ(text, name) {
   return obj;
 }
 
-// ============================================================
-// THUMBNAIL RENDERER
-// ============================================================
+// Renderizador dos icones dos modelos 3D usados no menu da biblioteca
 let thumbCtx=null, _tGeos=null;
 function initThumbRenderer() {
   const tc=document.createElement('canvas'); tc.width=64; tc.height=64;
@@ -1089,9 +1074,8 @@ function thumbForModel(name) {
   return makeThumb(geo, color);
 }
 
-// ============================================================
-// LIBRARY
-// ============================================================
+// BIBLIOTECA (ASSETS): 
+// Varre a pasta 'assets', acha arquivos de modelos, cria os icones e preenche o painel esquerdo da interface.
 function buildLibraryPrimitives() {
   libraryModels = [];
   (async () => {
@@ -1159,9 +1143,8 @@ function addToScene(id) {
   }
 }
 
-// ============================================================
-// SCENE TREE UI
-// ============================================================
+// INTERFACE DA ÁRVORE DA CENA: 
+// Atualiza a lista visual na tela com os nomes dos modelos que estão instanciados no momento. Permite seleção e deleção.
 function updateSceneTree() {
   const scroll=document.getElementById('scene-scroll'), empty=document.getElementById('scene-empty');
   scroll.innerHTML='';
@@ -1204,9 +1187,8 @@ function removeObject(id) {
   toast(obj.name+' removido');
 }
 
-// ============================================================
-// PROPERTIES PANEL
-// ============================================================
+// MENU DE PROPRIEDADES (lado DIREITO): 
+// Lê os dados do objeto selecionado e atualiza os inputs numéricos/cores, além de enviar as mudanças da interface para a CPU.
 function updatePropsPanel() {
   if (!selectedObj) {
     document.getElementById('props-content').style.display='none';
@@ -1308,9 +1290,8 @@ function playClip(i) {
 }
 function stopClip() { if (selectedObj) selectedObj.playing=false; }
 
-// ============================================================
-// COLLISION SYSTEM
-// ============================================================
+// Sistema de colisão dos objetos
+// Calcula as bordas (caixas) invisíveis que circundam os objetos para impedir que atravessem uns aos outros.
 function toggleCollision() {
   collisionEnabled=!collisionEnabled;
   document.getElementById('btn-collision').classList.toggle('active', collisionEnabled);
@@ -1353,9 +1334,8 @@ function resolveAABBCollision(obj) {
   }
 }
 
-// ============================================================
-// MOVEMENT
-// ============================================================
+
+// Movimento da ANIMAÇÃO
 function applyMoveTarget() {
   if (!selectedObj) return;
   selectedObj.moveTarget=[
@@ -1388,9 +1368,9 @@ function setMoveTargetFromPos() {
   toast('Destino definido como posição atual');
 }
 
-// ============================================================
-// TRANSFORM DRAG WIDGETS
-// ============================================================
+
+// Widgets de transformação (arrastar)
+// são os 'joypads' para mover e rotacionar o objeto selecionado.
 function setupTransformWidgets() {
   setupJoyPad('joy-move','joy-move-k',(dx,dy)=>{
     if (!selectedObj) return;
@@ -1480,9 +1460,8 @@ function setupJoyStrip(stripId, knobId, onDelta) {
   strip.addEventListener('pointerup',stop); strip.addEventListener('pointercancel',stop);
 }
 
-// ============================================================
-// SCENE OPERATIONS
-// ============================================================
+
+// Operações da CENA (Limpar, Mudar GRADE, esvazia memória, retira seleções, e expande os sub-menus laterais.)
 function toggleGrid() {
   gridVisible=!gridVisible;
   document.getElementById('btn-grid').classList.toggle('active', !gridVisible);
@@ -1512,9 +1491,8 @@ function resetTransform() {
 function removeSelected() { if (selectedObj) removeObject(selectedObj.id); }
 function updateStatusBar() { document.getElementById('sb-objects').textContent='Objetos: '+sceneObjects.length; }
 
-// ============================================================
-// SAVE / LOAD
-// ============================================================
+
+// Salvar e carregar cena (arquivo .json)
 function saveScene() {
   const data={
     version:2,
@@ -1590,9 +1568,9 @@ function applySceneData(data) {
   })();
 }
 
-// ============================================================
-// THEME
-// ============================================================
+
+// Tema escuro/claro
+// Botão de lua/sol que adiciona ou remove a classe CSS responsável por inverter as variáveis de cor.
 function toggleTheme() {
   const dark=document.documentElement.classList.toggle('dark');
   document.getElementById('theme-btn').textContent=dark?'☀️':'🌙';
@@ -1605,9 +1583,7 @@ function toggleTheme() {
   }
 })();
 
-// ============================================================
-// EXPORT PNG
-// ============================================================
+// Expotar PNG (imagem .png)
 function exportPNG() {
   renderScene();
   canvas.toBlob(blob=>{
@@ -1618,9 +1594,9 @@ function exportPNG() {
   });
 }
 
-// ============================================================
-// UTILS
-// ============================================================
+
+// FUNÇÕES UTILITÁRIAS GERAIS: 
+// Sorteadores de cor, arredondamento de casas decimais e os alertas de Toast/Loading do canto da tela.
 function randColor() {
   const p=[[0.48,0.44,0.88],[0.31,0.80,0.77],[0.88,0.48,0.44],[0.43,0.71,0.88],[0.88,0.79,0.43],[0.62,0.88,0.43]];
   return p[Math.floor(Math.random()*p.length)];
@@ -1634,8 +1610,7 @@ function toast(msg, type='') {
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',2800);
 }
 
-// ============================================================
-// BOOT
-// ============================================================
+// Inicialização
+// Garante que o WebGL só execute após o site terminar de baixar todos os recursos necessários pelo navegador.
 window.addEventListener('DOMContentLoaded', initGL);
 window.addEventListener('resize', ()=>{ onResize && onResize(); });
